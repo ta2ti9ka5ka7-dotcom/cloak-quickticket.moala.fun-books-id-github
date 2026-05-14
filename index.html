@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <title>デジタルチケット</title>
+
+    <script>
+        if (localStorage.getItem('isTicketUsed') === 'true') {
+            document.documentElement.classList.add('is-used-state');
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-dark: #28292b; 
+            --text-main: #000;
+            --text-light: #6f757a;
+            --badge-bg: #818589;
+            --line-color: #e0e1e2;
+            --footer-bg: #f5f5f5;
+            --btn-color: #1e1f20;
+            --applied-green: #5cca3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            background-color: #ffffff;
+            color: var(--text-main);
+            height: 100vh;
+            height: 100dvh; 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .line-break {
+            word-break: break-all;
+        }
+
+        /* --- 使用済みフラッシュアニメーション --- */
+        .apply-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--applied-green);
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .apply-background.active {
+            animation: applied 1s ease-out forwards;
+        }
+        @keyframes applied { 0% { opacity: .8; } 100% { opacity: 0; } }
+
+        /* --- Main Content --- */
+        .swiper-container {
+            background-color: var(--bg-dark);
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* --- Header --- */
+        header.book-information-bar {
+            display: flex;
+            justify-content: flex-end;
+            padding: 4px 12px 2px 5px;
+            height: auto;
+            flex-shrink: 0;
+            z-index: 10;
+            width: 100%;
+        }
+        .buttons-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 5px; 
+        }
+        .header-icon {
+            width: 48px;
+            height: auto; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; 
+            gap: 2px; 
+            padding: 4px 0; 
+            cursor: pointer;
+        }
+        .header-button-visitor-information {
+            width: 50px;
+        }
+        .header-icon img { 
+            width: 16px; 
+            height: auto; 
+        }
+        .header-button-label {
+            color: #fff;
+            font-size: 10px;
+        }
+
+        .swiper-wrapper {
+            flex: 1; 
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow: hidden;
+        }
+
+        /* ★修正：メイン画面の横幅を約1文字分（18px）だけ広げました */
+        .swiper-slide {
+            width: 85%;
+            max-width: 375px;
+            height: 100%; 
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- Ticket Container --- */
+        .ticket-container {
+            width: 100%;
+            height: 100%; 
+            border: 1px solid #1e1f20;
+            box-shadow: 0 6px 10px 0 rgba(0,0,0,.16), 0 2px 6px 0 rgba(0,0,0,.1);
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+        
+        .ticket-main-container {
+            height: 100%;
+            width: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .ticket {
+            flex: 1;
+            min-height: 0; 
+            display: flex;
+            flex-direction: column;
+        }
+        .scrollable {
+            flex: 1;
+            min-height: 0; 
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            padding-bottom: 24px;
+        }
+
+        /* --- Banner & Detail Button --- */
+        .ticket-header {
+            position: relative;
+        }
+        .ticket-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .detail-button {
+            position: absolute;
+            bottom: -20px;
+            right: 20px;
+            z-index: 6;
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .detail-button img { width: 20px; height: 30px; object-fit: contain;}
+
+        /* --- Ticket Info Blocks --- */
+        .ticket-information-block {
+            position: relative;
+            z-index: 5;
+            padding: 12px 16px;
+            font-size: 16px;
+        }
+        .non-legal-ticket-padding { padding-top: 20px; }
+        .non-qr-ticket-padding { padding-top: 0; }
+
+        .ticket-title {
+            font-weight: 600;
+            line-height: 1.3;
+            font-size: 16px;
+            word-break: break-all;
+        }
+        .date-container {
+            font-size: 14px;
+            line-height: 1.3;
+            margin-top: 4px;
+        }
+        .open-and-start-time-container {
+            display: flex;
+            flex-wrap: wrap;
+            line-height: 1.3;
+            font-size: 14px;
+        }
+        .label-and-time-wrapper {
+            display: flex;
+            margin-top: 4px;
+        }
+        .label-and-time-wrapper:first-child {
+            margin-right: 4px;
+        }
+        .label-and-time-wrapper .label {
+            display: inline-block;
+            padding: 4px;
+            background-color: var(--badge-bg);
+            border-radius: 3px;
+            font-size: 13px;
+            line-height: 1;
+            color: #fff;
+        }
+        .label-and-time-wrapper .time {
+            margin-left: 4px;
+            align-self: center;
+        }
+        .venue-name {
+            font-size: 14px;
+            line-height: 1.3;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+        .seat-name {
+            font-size: 16px;
+            line-height: 1.3;
+            font-weight: normal;
+        }
+        
+        .seat-number {
+            margin-top: 4px;
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 1.3;
+            word-break: break-all;
+            display: none; 
+        }
+
+        .line {
+            position: relative;
+            z-index: 5;
+            background-color: var(--line-color);
+            height: 1px;
+            width: 100%;
+        }
+
+        /* --- Owner / Entitled Visitor Section --- */
+        .ticket-owner-name-container, .entitled-visitors-name-container {
+            line-height: 1.5;
+        }
+        .entitled-visitors-name-container {
+            margin-top: 12px; 
+            display: none; 
+        }
+
+        .table-row {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .table-row .label {
+            align-self: center;
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 2px;
+        }
+        .table-row .name-kanji {
+            font-weight: 600;
+            font-size: 16px;
+            align-self: center;
+        }
+        .table-row .name-kana {
+            margin-left: 8px;
+            font-size: 11px;
+            align-self: center;
+        }
+
+        .under-stamp-image {
+            z-index: 3;
+        }
+        .legal-attention-container {
+            padding: 8px 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+
+        /* --- Stamp Area --- */
+        .stamp-container {
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            margin: 10px auto;
+            width: 100%;
+            height: 220px; 
+            position: relative;
+            z-index: 10;
+        }
+        
+        .stamp-container.active,
+        html.is-used-state .stamp-container {
+            display: flex;
+        }
+        
+        .stamp-image {
+            width: 85%;
+            max-width: 280px;
+            height: auto;
+            transform: scale(0); 
+            opacity: 0;
+            pointer-events: none;
+        }
+        .stamp-image.active {
+            animation: scale .2s cubic-bezier(0, 1.2, 1, 1.2) forwards; 
+        }
+
+        @keyframes scale {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* --- Bottom Action Button & Used Time --- */
+        .ticket-footer {
+            width: 100%;
+            background-color: var(--footer-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-direction: row;
+            padding: 12px 2vw; 
+            box-sizing: border-box;
+            flex-shrink: 0; 
+        }
+        .button-wrapper {
+            flex: 1 0 0;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            padding-left: 1vw;
+            padding-right: 1vw;
+        }
+        .gray-button {
+            width: 100%;
+            height: 44px;
+            line-height: 44px;
+            text-align: center;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--btn-color);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .apply-message {
+            color: #797979;
+            font-size: 12px;
+            text-align: center;
+            line-height: 1.5;
+            width: 100%;
+        }
+
+        /* =========================================================
+           提示画面 (本物のCSSデータに基づく完全再現)
+           ========================================================= */
+        .presentation-screen { 
+            position: fixed; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(34, 34, 34, 0.95); 
+            z-index: 100; 
+            display: none; 
+            flex-direction: column; 
+            padding-top: env(safe-area-inset-top); 
+            padding-bottom: env(safe-area-inset-bottom);
+            overflow-y: auto;
+        }
+        
+        .pres-header { 
+            color: #fff;
+            font-size: 17px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            height: 50px;
+        }
+        .pres-header .close { 
+            position: absolute;
+            left: 10px;
+            padding: 4px;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .pres-header .close-image { padding-top: 2px; }
+        .pres-header .title { 
+            padding: 14px 0;
+            margin: auto;
+            text-align: center;
+            font-weight: 600; 
+        }
+        
+        .qt-modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 92%;
+            margin: 10px auto 20px auto; 
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .qt-modal-content .header-flex-end {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 12px 16px;
+        }
+        .qt-modal-content .ticket-count {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+        .qt-modal-content .check-image-wrapper {
+            display: table-cell;
+            padding-right: 5px;
+            vertical-align: middle;
+        }
+        .qt-modal-content .check-image { width: 16px; height: 16px; }
+        .qt-modal-content .count-text { display: table-cell; vertical-align: middle; }
+        .qt-modal-content .count { padding-left: 2px; }
+        
+        .qt-modal-content .line {
+            color: #d8d8d8;
+            border-style: solid;
+            border-width: 1px 0 0;
+            margin-left: 0;
+            margin-right: 0;
+            width: 100%;
+        }
+        
+        .qt-modal-content .content { 
+            margin-top: 12px;
+            padding: 0 16px; 
+        }
+        .qt-modal-content .title { 
+            font-size: 14px; 
+            font-weight: 600; 
+        }
+        .qt-modal-content .datetime-wrapper { 
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 4px;
+            line-height: 1.7;
+            font-size: 12px;
+        }
+        .qt-modal-content .datetime { margin-right: 8px; }
+        .qt-modal-content .open-and-start-time-container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .qt-modal-content .label-and-time-wrapper {
+            display: flex;
+        }
+        .qt-modal-content .label-and-time-wrapper:first-child { margin-right: 8px; }
+        
+        .qt-modal-content .label-and-time-wrapper .label {
+            align-self: center;
+            padding-right: 8px;
+            background-color: transparent;
+            border-radius: 0;
+            font-size: 12px;
+            color: inherit;
+            font-weight: normal;
+        }
+        .qt-modal-content .label-and-time-wrapper .time {
+            align-self: center;
+            margin-left: 0;
+            font-size: 12px;
+            font-weight: normal;
+        }
+        .qt-modal-content .seat { 
+            margin-top: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        .qt-modal-content .entitled-visitors-container {
+            margin-top: 12px;
+            line-height: 1.5;
+            display: none; 
+        }
+        .qt-modal-content .entitled-visitors-label {
+            display: flex;
+            color: #818589;
+            font-size: 13px;
+        }
+        .qt-modal-content .entitled-visitors-body {
+            margin-top: 4px;
+            padding: 8px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .qt-modal-content .entitled-visitor-name-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .qt-modal-content .entitled-visitor-name-wrapper .name-kanji {
+            font-size: 16px;
+            font-weight: normal;
+        }
+        .qt-modal-content .entitled-visitor-name-wrapper .name-kana {
+            font-size: 12px;
+            margin-left: 8px;
+            font-weight: normal;
+        }
+
+        .apply-guide-wrapper { 
+            position: absolute;
+            z-index: 2;
+            left: 0;
+            width: 100%;
+            bottom: 4%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .apply-guide { 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            height: 72vw;
+            width: 72vw;
+            max-width: 320px;
+            max-height: 320px;
+            border-radius: 50%;
+            border: 1px dashed rgba(30,31,32,.3);
+            background-color: hsla(0,0%,100%,.7);
+        }
+        .guide-text { 
+            width: 100%;
+            color: #45484a;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* --- その他の設定モーダル --- */
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 200; display: none; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 85%; max-width: 320px; border-radius: 12px; padding: 30px 20px 20px; text-align: center; }
+        .modal-icon { margin-bottom: 20px; }
+        .modal-text { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
+        .modal-subtext { font-size: 0.85rem; color: #555; margin-bottom: 30px; line-height: 1.5; }
+        .modal-buttons { display: flex; gap: 10px; }
+        .btn-cancel, .btn-confirm { flex: 1; padding: 14px 0; border-radius: 6px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; }
+        .btn-cancel { background: white; border: 1px solid #ccc; color: #333; }
+        .btn-confirm { background: #1e1f20; color: white; }
+        
+        .settings-panel { position: fixed; top: 10%; left: 5%; width: 90%; max-height: 80%; background: white; z-index: 300; border-radius: 8px; padding: 20px; overflow-y: auto; display: none; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        .settings-panel h3 { margin-bottom: 15px; font-size: 1.1rem; }
+        .setting-group { margin-bottom: 10px; }
+        .setting-group label { display: block; font-size: 0.75rem; margin-bottom: 3px; color: #666; }
+        .setting-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem;}
+        .settings-close { margin-top: 15px; width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 4px; font-weight: 600;}
+    </style>
+</head>
+<body>
+
+    <div class="apply-background" id="flash"></div>
+
+    <div class="swiper-container">
+        <header class="book-information-bar">
+            <div class="buttons-container">
+                <div class="header-icon">
+                    <img src="https://cloak-quickticket.moala.fun/assets/images/header-icon/howto.svg" alt="使い方" class="header-button-image">
+                    <div class="header-button-label">使い方</div>
+                </div>
+                <!-- 返却ボタン -->
+                <div class="header-icon" id="btn-return">
+                    <img src="https://cloak-quickticket.moala.fun/assets/images/header-icon/return.svg" alt="返却" class="header-button-image">
+                    <div class="header-button-label">返却</div>
+                </div>
+                <div class="header-icon header-button-visitor-information" id="btn-open-settings">
+                    <img src="https://cloak-quickticket.moala.fun/assets/images/header-icon/profile.svg" alt="入場者情報" class="header-button-image">
+                    <div class="header-button-label">入場者情報</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="swiper-wrapper">
+            <div class="swiper-slide">
+                <div class="ticket-container">
+                    <div class="ticket-main-container">
+                        <div class="ticket">
+                            
+                            <div class="scrollable">
+                                <div class="ticket-header">
+                                    <img src="https://i.postimg.cc/jd0WJ4KL/1-f.png" alt="Banner" class="ticket-image">
+                                    <a class="detail-button">
+                                        <img src="https://cloak-quickticket.moala.fun/assets/images/icon-info.svg" alt="詳細">
+                                    </a>
+                                </div>
+
+                                <div class="ticket-information-block non-legal-ticket-padding">
+                                    <div class="title-date-container">
+                                        <div class="ticket-title line-break" id="t-title">ＲＡＤ　ＪＡＭ</div>
+                                        <div class="date-and-time-wrapper">
+                                            <div class="date-container" id="t-date">2026/3/29（日）</div>
+                                            <div class="open-and-start-time-container">
+                                                <div class="label-and-time-wrapper">
+                                                    <div class="label">開場時間</div>
+                                                    <div class="time" id="t-open">9:00</div>
+                                                </div>
+                                                <div class="label-and-time-wrapper">
+                                                    <div class="label">開演時間</div>
+                                                    <div class="time" id="t-start">9:30</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="venue-name line-break" id="t-venue">Ａｉｃｈｉ　Ｓｋｙ　Ｅｘｐｏ（愛知県国際展示場）　ホールＣ～Ｆ (愛知県)</div>
+                                </div>
+
+                                <div class="ticket-information-block non-qr-ticket-padding">
+                                    <div class="seat-name line-break" id="t-type">ノーマル PASS</div>
+                                    <div class="seat-number line-break" id="t-seat-number">整理番号B5番</div>
+                                </div>
+
+                                <div class="line"></div>
+
+                                <div class="ticket-information-block">
+                                    
+                                    <div class="stamp-container" id="stamp-area">
+                                        <img src="https://i.postimg.cc/brHqnbHF/1-r.png" alt="Stamp" class="stamp-image" id="main-stamp">
+                                    </div>
+
+                                    <div class="ticket-owner-name-container">
+                                        <div class="table-row">
+                                            <div class="label">所有者</div>
+                                        </div>
+                                        <div class="table-row">
+                                            <div class="name-kanji" id="t-name">亀山拓真</div>
+                                            <div class="name-kana" id="t-kana">（カメヤマタクマ）</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="entitled-visitors-name-container" id="entitled-container">
+                                        <div class="table-row">
+                                            <div class="label">入場資格者</div>
+                                        </div>
+                                        <div class="table-row">
+                                            <div class="name-kanji" id="t-entitled-name"></div>
+                                            <div class="name-kana" id="t-entitled-kana"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="line" id="legal-line" style="display: none;"></div>
+                                <div class="ticket-information-block under-stamp-image" id="legal-attention-block" style="display: none;">
+                                    <div class="legal-attention-container">
+                                        【無断有償譲渡禁止】<br>
+                                        本券は購入者（入場資格者）の氏名・連絡先を確認済／事前確認された方以外の入場はできません。
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="ticket-footer" id="bottom-action-bar">
+                                <div class="button-wrapper" id="footer-button-wrapper">
+                                    <a class="gray-button" id="btn-show-ticket">チケットを提示</a>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-panel" id="settings-panel">
+            <h3>画面表示テキストの設定</h3>
+            <div class="setting-group"><label>イベント名</label><input type="text" id="i-title" value="ＲＡＤ　ＪＡＭ"></div>
+            <div class="setting-group"><label>日付</label><input type="text" id="i-date" value="2026/3/29（日）"></div>
+            <div class="setting-group"><label>開場時間</label><input type="text" id="i-open" value="9:00"></div>
+            <div class="setting-group"><label>開演時間</label><input type="text" id="i-start" value="9:30"></div>
+            <div class="setting-group"><label>会場</label><input type="text" id="i-venue" value="Ａｉｃｈｉ　Ｓｋｙ　Ｅｘｐｏ（愛知県国際展示場）　ホールＣ～Ｆ (愛知県)"></div>
+            <div class="setting-group"><label>券種</label><input type="text" id="i-type" value="ノーマル PASS"></div>
+            
+            <div class="setting-group"><label>整理番号 (空欄で非表示)</label><input type="text" id="i-seat-number" value=""></div>
+            
+            <div class="setting-group"><label>所有者名</label><input type="text" id="i-name" value="亀山拓真"></div>
+            <div class="setting-group"><label>所有者名(カナ)</label><input type="text" id="i-kana" value="（カメヤマタクマ）"></div>
+            
+            <div class="setting-group"><label>入場資格者名 (空欄で非表示)</label><input type="text" id="i-entitled-name" value=""></div>
+            <div class="setting-group"><label>入場資格者名(カナ)</label><input type="text" id="i-entitled-kana" value=""></div>
+
+            <div class="setting-group" style="margin-top: 15px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #333;">
+                    <input type="checkbox" id="i-legal-toggle" style="width: auto; transform: scale(1.2);">
+                    禁止事項（【無断有償譲渡禁止】等）を表示する
+                </label>
+            </div>
+
+            <button class="settings-close" id="btn-close-settings">保存して閉じる</button>
+        </div>
+
+        <!-- 提示画面 -->
+        <div class="presentation-screen" id="presentation-screen">
+            <div class="pres-header">
+                <a id="btn-close-presentation" class="close">
+                    <img src="https://cloak-quickticket.moala.fun/assets/images/icon-menu-close-line.svg" class="close-image">
+                </a>
+                <div class="title">チケットを提示</div>
+            </div>
+            
+            <div class="qt-modal-content max-height flex-column">
+                <div>
+                    <div class="header header-flex-end">
+                        <div class="ticket-count">
+                            <div class="check-image-wrapper">
+                                <img src="https://cloak-quickticket.moala.fun/assets/images/check.svg" class="check-image">
+                            </div>
+                            <div class="count-text"> 使用済みチケット：<span class="count">0 / 1</span></div>
+                        </div>
+                    </div>
+                    <div class="line"></div>
+                </div>
+                
+                <div>
+                    <div class="content">
+                        <div class="title line-break" id="p-title">ＲＡＤ　ＪＡＭ</div>
+                        
+                        <div class="datetime-wrapper">
+                            <div class="datetime" id="p-date">2026/3/29（日）</div>
+                            <div class="open-and-start-time-container">
+                                <div class="label-and-time-wrapper">
+                                    <div class="label">開場時間</div>
+                                    <div class="time" id="p-open">9:00</div>
+                                </div>
+                                <div class="label-and-time-wrapper">
+                                    <div class="label">開演時間</div>
+                                    <div class="time" id="p-start">9:30</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="seat line-break" id="p-type">ノーマル PASS</div>
+
+                        <div class="entitled-visitors-container" id="p-entitled-container">
+                            <div class="entitled-visitors-label"> 入場資格者 </div>
+                            <div class="entitled-visitors-body">
+                                <div class="entitled-visitor-name-wrapper">
+                                    <div class="name-kanji" id="p-entitled-name"></div>
+                                    <div class="name-kana" id="p-entitled-kana"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <div class="apply-guide-wrapper">
+                        <div class="apply-guide" id="stamp-target">
+                            <div class="guide-text"> こちらの画面をスタッフにご提示ください。 <br> ※スクリーンショットはご利用いただけません。 </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="confirm-modal">
+            <div class="modal-content">
+                <div class="modal-icon">
+                    <img src="https://cloak-quickticket.moala.fun/assets/images/apply-dialog/plucked-ticket.svg" alt="plucked ticket" width="100">
+                </div>
+                <div class="modal-text">チケットを使用済にしますか？</div>
+                <div class="modal-subtext">この操作は元に戻せません。<br>入場前のご使用はお控えください。</div>
+                <div class="modal-buttons">
+                    <button class="btn-cancel" id="btn-cancel">キャンセル</button>
+                    <button class="btn-confirm" id="btn-confirm">使用済にする</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const btnShowTicket = document.getElementById('btn-show-ticket');
+        const presentationScreen = document.getElementById('presentation-screen');
+        const btnClosePresentation = document.getElementById('btn-close-presentation');
+        const stampTarget = document.getElementById('stamp-target');
+        const confirmModal = document.getElementById('confirm-modal');
+        const btnCancel = document.getElementById('btn-cancel');
+        const btnConfirm = document.getElementById('btn-confirm');
+        const mainStamp = document.getElementById('main-stamp'); 
+        const stampArea = document.getElementById('stamp-area');
+        const bottomActionBar = document.getElementById('bottom-action-bar');
+
+        const btnOpenSettings = document.getElementById('btn-open-settings');
+        const settingsPanel = document.getElementById('settings-panel');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        
+        const flashEffect = document.getElementById('flash'); 
+        const btnReturn = document.getElementById('btn-return'); 
+
+        const fields = ['title', 'date', 'open', 'start', 'venue', 'type', 'name', 'kana'];
+
+        // --- リロード時に「最初から余白を開けておく」ための同期処理 ---
+        if (localStorage.getItem('isTicketUsed') === 'true') {
+            stampArea.classList.add('active');
+        }
+
+        // --- 画面ロード時の処理 ---
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('isTicketUsed') === 'true') {
+                const savedTime = localStorage.getItem('usedTime');
+                const footerButtonWrapper = document.getElementById('footer-button-wrapper');
+                
+                // フッターを使用済みのテキストに差し替え
+                footerButtonWrapper.innerHTML = `
+                    <div class="apply-message">
+                        チケット使用日時： <br> 
+                        ${savedTime}
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    mainStamp.classList.add('active');
+                }, 150); 
+            }
+        });
+
+        // 画面切り替え
+        btnShowTicket.addEventListener('click', () => presentationScreen.style.display = 'flex');
+        btnClosePresentation.addEventListener('click', () => presentationScreen.style.display = 'none');
+
+        // なぞり判定
+        let isTracing = false, accumulatedAngle = 0, lastAngle = 0, circleCenter = {};
+        function getCenter(el) { const rect = el.getBoundingClientRect(); return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; }
+        function getAngle(x, y, center) { return Math.atan2(y - center.y, x - center.x); }
+
+        function handleStart(e) { e.preventDefault(); isTracing = true; accumulatedAngle = 0; circleCenter = getCenter(stampTarget); const point = e.touches ? e.touches[0] : e; lastAngle = getAngle(point.clientX, point.clientY, circleCenter); }
+        function handleMove(e) { if (!isTracing) return; e.preventDefault(); const point = e.touches ? e.touches[0] : e; const currentAngle = getAngle(point.clientX, point.clientY, circleCenter); let delta = currentAngle - lastAngle; if (delta > Math.PI) delta -= 2 * Math.PI; else if (delta < -Math.PI) delta += 2 * Math.PI; accumulatedAngle += Math.abs(delta); lastAngle = currentAngle; if (Math.min(accumulatedAngle / (2 * Math.PI), 1) >= 0.9) { isTracing = false; confirmModal.style.display = 'flex'; } }
+        function handleEnd() { isTracing = false; }
+
+        stampTarget.addEventListener('touchstart', handleStart, { passive: false });
+        stampTarget.addEventListener('touchmove', handleMove, { passive: false });
+        stampTarget.addEventListener('touchend', handleEnd);
+        stampTarget.addEventListener('mousedown', handleStart);
+        window.addEventListener('mousemove', handleMove); 
+        window.addEventListener('mouseup', handleEnd);
+
+        // 返却ボタンアクション
+        btnReturn.addEventListener('click', () => {
+            localStorage.removeItem('isTicketUsed');
+            localStorage.removeItem('usedTime');
+            location.reload(); 
+        });
+
+        // 確認モーダルアクション
+        btnCancel.addEventListener('click', () => confirmModal.style.display = 'none');
+        btnConfirm.addEventListener('click', () => {
+            confirmModal.style.display = 'none';
+            presentationScreen.style.display = 'none';
+            
+            // フラッシュとスタンプ出現をトリガー
+            flashEffect.classList.add('active');
+            stampArea.classList.add('active');
+            mainStamp.classList.add('active');
+
+            const footerButtonWrapper = document.getElementById('footer-button-wrapper');
+            const pad = (num) => String(num).padStart(2, '0');
+            const now = new Date(); const days = ['日','月','火','水','木','金','土'];
+            
+            const timeString = `${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())}（${days[now.getDay()]}） ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+            
+            footerButtonWrapper.innerHTML = `
+                <div class="apply-message">
+                    チケット使用日時： <br> 
+                    ${timeString}
+                </div>
+            `;
+
+            localStorage.setItem('isTicketUsed', 'true');
+            localStorage.setItem('usedTime', timeString);
+        });
+
+        // 設定パネル処理
+        btnOpenSettings.addEventListener('click', () => settingsPanel.style.display = 'block');
+        btnCloseSettings.addEventListener('click', () => { 
+            // 通常項目の反映
+            fields.forEach(f => { 
+                const val = document.getElementById(`i-${f}`).value; 
+                const tEl = document.getElementById(`t-${f}`); 
+                if(tEl) tEl.innerText = val; 
+                
+                // p-typeとp-seat-numberは別途処理するのでスキップ
+                if (f !== 'type' && f !== 'seat-number') {
+                    const pEl = document.getElementById(`p-${f}`); 
+                    if(pEl) pEl.innerText = val; 
+                }
+            }); 
+            
+            // 券種と整理番号の反映
+            const typeVal = document.getElementById('i-type').value;
+            const seatNumberVal = document.getElementById('i-seat-number').value;
+            const tSeatNumber = document.getElementById('t-seat-number');
+            const pType = document.getElementById('p-type');
+            
+            if (seatNumberVal.trim() !== "") {
+                // メイン画面
+                tSeatNumber.innerText = seatNumberVal;
+                tSeatNumber.style.display = 'block';
+                // 提示画面（繋げて表示）
+                if (pType) pType.innerText = typeVal + " " + seatNumberVal;
+            } else {
+                // メイン画面
+                tSeatNumber.style.display = 'none';
+                // 提示画面（券種のみ）
+                if (pType) pType.innerText = typeVal;
+            }
+
+            // 入場資格者の反映
+            const entName = document.getElementById('i-entitled-name').value;
+            const entKana = document.getElementById('i-entitled-kana').value;
+            const entContainer = document.getElementById('entitled-container');
+            const pEntContainer = document.getElementById('p-entitled-container');
+            
+            if (entName.trim() !== "" || entKana.trim() !== "") {
+                document.getElementById('t-entitled-name').innerText = entName;
+                document.getElementById('t-entitled-kana').innerText = entKana;
+                entContainer.style.display = 'block';
+                
+                document.getElementById('p-entitled-name').innerText = entName;
+                document.getElementById('p-entitled-kana').innerText = entKana;
+                if (pEntContainer) pEntContainer.style.display = 'block';
+            } else {
+                entContainer.style.display = 'none';
+                if (pEntContainer) pEntContainer.style.display = 'none';
+            }
+
+            const isLegalChecked = document.getElementById('i-legal-toggle').checked;
+            document.getElementById('legal-line').style.display = isLegalChecked ? 'block' : 'none';
+            document.getElementById('legal-attention-block').style.display = isLegalChecked ? 'block' : 'none';
+
+            settingsPanel.style.display = 'none'; 
+        });
+        
+        // 初期状態での適用
+        document.getElementById('btn-close-settings').click();
+    </script>
+</body>
+</html>
